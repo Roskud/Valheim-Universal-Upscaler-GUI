@@ -1,0 +1,6 @@
+# Build artifacts
+*.obj
+*.pdb
+inspect.*
+check_edge.py
+*.tmp
