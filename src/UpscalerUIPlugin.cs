@@ -37,10 +37,91 @@ namespace ValheimUpscalerUI
             SharpnessConfig = Config.Bind("GraphicsSettings", "Sharpness", 0.5f, "Upscaler sharpness (0.0 to 1.0)");
             MenuHotkeyConfig = Config.Bind("Input", "MenuHotkey", KeyCode.F7, "Hotkey to toggle the quick Upscaler overlay menu");
 
+            AutoDeployNativeFiles();
+
             _harmony = new Harmony("com.valheim.upscalerui");
             _harmony.PatchAll();
 
             Debug.Log("[ValheimUpscalerUI] In-Game Upscaler UI Mod loaded successfully.");
+        }
+
+        private void AutoDeployNativeFiles()
+        {
+            try
+            {
+                string gameDir = Path.GetDirectoryName(Application.dataPath);
+                if (string.IsNullOrEmpty(gameDir)) return;
+
+                // 1. Remove conflicting or leftover version.dll to prevent Assertion failed crash
+                string versionDll = Path.Combine(gameDir, "version.dll");
+                if (File.Exists(versionDll))
+                {
+                    try
+                    {
+                        File.Delete(versionDll);
+                        Debug.Log("[ValheimUpscalerUI] Removed conflicting version.dll to avoid Dx12 hook collision.");
+                    }
+                    catch { }
+                }
+
+                // 2. Automatically deploy native DirectX 12 upscaler files from plugin directory
+                string pluginDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                if (string.IsNullOrEmpty(pluginDir) || !Directory.Exists(pluginDir)) return;
+
+                string[] nativeFiles = new string[]
+                {
+                    "dxgi.dll",
+                    "OptiScaler.ini",
+                    "amd_fidelityfx_dx12.dll",
+                    "amd_fidelityfx_framegeneration_dx12.dll",
+                    "amd_fidelityfx_upscaler_dx12.dll",
+                    "libxess.dll",
+                    "libxess_fg.dll",
+                    "fakenvapi.dll",
+                    "fakenvapi.ini"
+                };
+
+                bool anyDeployed = false;
+                foreach (string fileName in nativeFiles)
+                {
+                    string src = Path.Combine(pluginDir, fileName);
+                    if (!File.Exists(src))
+                    {
+                        // Check native/ or runtimes/ subdirectories
+                        string sub1 = Path.Combine(pluginDir, "native", fileName);
+                        string sub2 = Path.Combine(pluginDir, "runtimes", fileName);
+                        if (File.Exists(sub1)) src = sub1;
+                        else if (File.Exists(sub2)) src = sub2;
+                    }
+
+                    if (File.Exists(src))
+                    {
+                        string dst = Path.Combine(gameDir, fileName);
+                        if (!File.Exists(dst))
+                        {
+                            try
+                            {
+                                File.Copy(src, dst, true);
+                                anyDeployed = true;
+                                Debug.Log("[ValheimUpscalerUI] Auto-deployed to game root: " + fileName);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.LogWarning("[ValheimUpscalerUI] Failed to auto-deploy " + fileName + ": " + ex.Message);
+                            }
+                        }
+                    }
+                }
+
+                if (anyDeployed)
+                {
+                    Debug.Log("[ValheimUpscalerUI] All native upscaler runtimes successfully deployed automatically!");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("[ValheimUpscalerUI] Error in AutoDeployNativeFiles: " + ex);
+            }
         }
 
         private void Start()
