@@ -11,8 +11,7 @@ using UnityEngine.UI;
 
 namespace ValheimUpscalerUI
 {
-    [BepInPlugin("com.valheim.upscalerui", "Valheim Upscaler Settings UI", "1.1.0")]
-    [BepInDependency("dev.valheim.upscaler.inject", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInPlugin("com.valheim.upscalerui", "Valheim Upscaler Settings UI", "1.1.1")]
     public class UpscalerUIPlugin : BaseUnityPlugin
     {
         public static UpscalerUIPlugin Instance;
