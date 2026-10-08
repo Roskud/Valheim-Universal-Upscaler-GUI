@@ -39,13 +39,13 @@ No more tweaking `.ini` files or struggling with external overlays! Everything i
   * **Sharpness**: Smooth slider from `0%` to `100%`.
 * **In-Game Quick Overlay (`F7`)**:
   * Press **`F7`** anywhere in-game to toggle a floating quick-access HUD.
-* **Compatibility**:
+* **100% Standalone r2modman Integration**:
+  * **Zero manual file copying!** All upscaler runtimes (OptiScaler, FSR 4, XeSS) are bundled right inside and auto-deployed by the preloader on first launch.
   * Fully compatible with **r2modman**, **Thunderstore Mod Manager**, and standard Steam installations.
-  * Works alongside other popular mods (Jotunn, Epic MMO, Warfare, etc.).
 
 ---
 
-### Installation
+### ⚡ Quick Start & Installation
 
 > [!IMPORTANT]
 > **DirectX 12 Requirement**: Valheim runs in DirectX 11 by default. Modern upscalers (FSR, XeSS, DLSS) require DirectX 12.
@@ -54,20 +54,18 @@ No more tweaking `.ini` files or struggling with external overlays! Everything i
 > -force-d3d12
 > ```
 
-#### 🚀 Option 1: Complete 1-Click All-in-One Setup (Recommended)
-Everything pre-configured in a single download (OptiScaler engine, FSR 4 / XeSS runtimes, Doorstop, and GUI mod).
-1. Go to [GitHub Releases](https://github.com/Roskud/Valheim-Universal-Upscaler-GUI/releases) and download **`Valheim_Universal_Upscaler_Full_Setup_v1.0.0.zip`**.
-2. Extract the contents directly into your Valheim game folder (where `valheim.exe` is located, e.g. `steamapps\common\Valheim`).
-3. Add `-force-d3d12` to Valheim's Steam Launch Options.
-4. Launch Valheim (via Steam or mod manager) and enjoy!
+#### 📦 Option 1: Via r2modman / Thunderstore Mod Manager (1-Click, Recommended)
+**No manual file copying required!** All upscaler runtimes (OptiScaler, FSR 4, XeSS) are bundled directly inside this package and auto-deployed upon launch:
+1. In **r2modman**, search for **`Valheim_Universal_Upscaler_GUI`** and click **Download** (dependencies will be installed automatically).
+2. Ensure `-force-d3d12` is set in your Steam Launch Options for Valheim.
+3. Click the blue **Start Modded** button in r2modman.
+4. That's it! Open **Settings ➔ Graphics** or press **F7** in-game to configure your upscaler.
 
-#### 📦 Option 2: Via r2modman / Thunderstore Mod Manager
-Because r2modman installs plugins strictly into `BepInEx/plugins/` and cannot modify game-root DirectX files:
-1. In **r2modman**, install **`Valheim_Universal_Upscaler_GUI`** (it automatically installs `BepInExPack_Valheim`).
-2. Drop the root DirectX hook files into the game folder:
-   * Download the root files from our [GitHub Releases](https://github.com/Roskud/Valheim-Universal-Upscaler-GUI/releases) (`Valheim_Universal_Upscaler_Full_Setup_v1.0.0.zip`) and place `dxgi.dll`, `version.dll`, and `OptiScaler.ini` into your `Valheim` game folder.
+#### 🚀 Option 2: Manual Installation (Without Mod Manager)
+1. Download **`Valheim_Universal_Upscaler_Full_Setup_v1.0.0.zip`** from [GitHub Releases](https://github.com/Roskud/Valheim-Universal-Upscaler-GUI/releases).
+2. Extract the contents directly into your `Valheim` game directory (`steamapps\common\Valheim`).
 3. Add `-force-d3d12` to Valheim's Steam Launch Options.
-4. In r2modman, click the blue button **Start Modded** to launch!
+4. Launch Valheim via Steam.
 
 ---
 
@@ -96,35 +94,33 @@ Because r2modman installs plugins strictly into `BepInEx/plugins/` and cannot mo
   * **Резкость (Sharpness)**: Ползунок от `0%` до `100%`.
 * **Быстрое оверлей-меню (`F7`)**:
   * Нажмите клавишу **`F7`** во время игры, чтобы открыть плавающую панель быстрых настроек.
-* **Полная совместимость**:
+* **100% Автономная работа в r2modman**:
+  * **Никаких ручных манипуляций!** Все библиотеки апскейла (OptiScaler, FSR 4, XeSS) уже упакованы внутрь мода и автоматически устанавливаются предзагрузчиком при первом запуске игры.
   * Поддерживает запуск через **r2modman**, **Thunderstore**, а также чистый Steam.
-  * Полностью совместим с популярными сборками модов (Jotunn, Therzie, Wacky и др.).
 
 ---
 
-### Установка
+### ⚡ Быстрая установка
 
 > [!IMPORTANT]
-> **Требуется DirectX 12**: Valheim по умолчанию запускается в режиме DirectX 11. Современным апскейлерам (FSR, XeSS, DLSS) необходим DirectX 12.
+> **Обязательно для DirectX 12**: Valheim по умолчанию запускается в режиме DirectX 11. Современным апскейлерам (FSR, XeSS, DLSS) необходим DirectX 12.
 > В библиотеке Steam нажмите правой кнопкой на **Valheim ➔ Свойства ➔ Общие ➔ Параметры запуска** и впишите:
 > ```text
 > -force-d3d12
 > ```
 
-#### 🚀 Вариант 1: Установка «Всё в одном» в 1 клик (Рекомендуется)
-Все необходимые файлы (движок OptiScaler, библиотеки FSR 4 / XeSS, загрузчик BepInEx и наш GUI-мод) собраны в одном готовом архиве:
-1. Перейдите в [Релизы на GitHub](https://github.com/Roskud/Valheim-Universal-Upscaler-GUI/releases) и скачайте **`Valheim_Universal_Upscaler_Full_Setup_v1.0.0.zip`**.
-2. Распакуйте содержимое архива в папку игры Valheim (где находится `valheim.exe`, например: `C:\Program Files (x86)\Steam\steamapps\common\Valheim`).
-3. В свойствах Valheim в Steam в параметрах запуска укажите `-force-d3d12`.
-4. Запустите Valheim и играйте! Настройки появятся в **Настройки ➔ Графика**, а оверлей открывается на **F7**.
+#### 📦 Вариант 1: Установка через r2modman / Thunderstore (В 1 клик, Рекомендуется)
+**Вам не нужно ничего копировать или искать вручную!** Все библиотеки апскейлинга (OptiScaler, FSR 4, XeSS) уже встроены в мод и автоматически разворачиваются при первом запуске:
+1. В **r2modman** найдите **`Valheim_Universal_Upscaler_GUI`** и нажмите **Download** (нужные зависимости, включая BepInExPack, установятся сами).
+2. Убедитесь, что в параметрах запуска Steam прописан `-force-d3d12`.
+3. Нажмите синюю кнопку **Start Modded** в r2modman.
+4. Всё готово! Откройте **Настройки ➔ Графика** или нажмите **F7** прямо во время игры для вызова оверлея.
 
-#### 📦 Вариант 2: Через r2modman / Thunderstore Mod Manager
-Менеджер r2modman устанавливает моды строго в изолированную папку `BepInEx/plugins/` и не может модифицировать системные файлы DirectX в корне игры Steam:
-1. В **r2modman** нажмите **Install with Mod Manager** для мода **`Valheim_Universal_Upscaler_GUI`**.
-2. Поместите системные файлы апскейлера в корень игры:
-   * Скачайте базовые файлы из нашего [Full Setup архива на GitHub](https://github.com/Roskud/Valheim-Universal-Upscaler-GUI/releases) и поместите `dxgi.dll`, `version.dll` и `OptiScaler.ini` в папку `Valheim`.
+#### 🚀 Вариант 2: Ручная установка (Без менеджера модов)
+1. Скачайте архив **`Valheim_Universal_Upscaler_Full_Setup_v1.0.0.zip`** из [Релизов GitHub](https://github.com/Roskud/Valheim-Universal-Upscaler-GUI/releases).
+2. Распакуйте все файлы в корневую папку игры `Valheim` (`steamapps\common\Valheim`).
 3. В параметрах запуска Steam укажите `-force-d3d12`.
-4. В r2modman обязательно запускайте игру через синюю кнопку **Start Modded**!
+4. Запустите Valheim через Steam.
 
 ---
 
