@@ -1,8 +1,8 @@
 {
   "name": "Valheim_Universal_Upscaler_GUI",
-  "version_number": "1.0.1",
+  "version_number": "1.1.0",
   "website_url": "https://github.com/Roskud/Valheim-Universal-Upscaler-GUI",
-  "description": "Full In-Game Settings UI for Valheim Upscaler. Presets (Quality, Balanced, Performance, Native), Technologies (AMD FSR 3.1, FSR 4, Intel XeSS, DLSS), Frame Generation and Sharpness slider directly in Graphics settings.",
+  "description": "Standalone In-Game Settings UI for Valheim Upscaler. Full native OptiScaler, FSR 4, FSR 3.1, XeSS, DLSS and Frame Generation auto-deployed right from r2modman out of the box!",
   "dependencies": [
     "denikson-BepInExPack_Valheim-5.4.2202"
   ]
