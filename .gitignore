@@ -4,3 +4,13 @@
 inspect.*
 check_edge.py
 *.tmp
+*.zip
+*.7z
+staging_full_setup/
+.FullName
+thunderstore/plugins/runtimes/
+thunderstore/plugins/ValheimUpscaler.Recon.dll
+OptiScaler.dll
+ValheimUpscaler.Recon.dll
+
+

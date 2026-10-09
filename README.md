@@ -62,7 +62,7 @@ No more tweaking `.ini` files or struggling with external overlays! Everything i
 4. That's it! Open **Settings ➔ Graphics** or press **F7** in-game to configure your upscaler.
 
 #### 🚀 Option 2: Manual Installation (Without Mod Manager)
-1. Download **`Valheim_Universal_Upscaler_Full_Setup_v1.0.0.zip`** from [GitHub Releases](https://github.com/Roskud/Valheim-Universal-Upscaler-GUI/releases).
+1. Download **`Valheim_Universal_Upscaler_Full_Setup_v1.1.2.zip`** from [GitHub Releases](https://github.com/Roskud/Valheim-Universal-Upscaler-GUI/releases).
 2. Extract the contents directly into your `Valheim` game directory (`steamapps\common\Valheim`).
 3. Add `-force-d3d12` to Valheim's Steam Launch Options.
 4. Launch Valheim via Steam.
@@ -117,7 +117,7 @@ No more tweaking `.ini` files or struggling with external overlays! Everything i
 4. Всё готово! Откройте **Настройки ➔ Графика** или нажмите **F7** прямо во время игры для вызова оверлея.
 
 #### 🚀 Вариант 2: Ручная установка (Без менеджера модов)
-1. Скачайте архив **`Valheim_Universal_Upscaler_Full_Setup_v1.0.0.zip`** из [Релизов GitHub](https://github.com/Roskud/Valheim-Universal-Upscaler-GUI/releases).
+1. Скачайте архив **`Valheim_Universal_Upscaler_Full_Setup_v1.1.2.zip`** из [Релизов GitHub](https://github.com/Roskud/Valheim-Universal-Upscaler-GUI/releases).
 2. Распакуйте все файлы в корневую папку игры `Valheim` (`steamapps\common\Valheim`).
 3. В параметрах запуска Steam укажите `-force-d3d12`.
 4. Запустите Valheim через Steam.

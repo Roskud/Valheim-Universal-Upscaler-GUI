@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
@@ -11,7 +12,7 @@ using UnityEngine.UI;
 
 namespace ValheimUpscalerUI
 {
-    [BepInPlugin("com.valheim.upscalerui", "Valheim Upscaler Settings UI", "1.1.1")]
+    [BepInPlugin("com.valheim.upscalerui", "Valheim Upscaler Settings UI", "1.1.2")]
     public class UpscalerUIPlugin : BaseUnityPlugin
     {
         public static UpscalerUIPlugin Instance;
@@ -24,7 +25,41 @@ namespace ValheimUpscalerUI
 
         private Harmony _harmony;
         private bool _showQuickMenu = false;
-        private Rect _quickMenuRect = new Rect(40, 40, 420, 440);
+        private Rect _quickMenuRect = new Rect(40, 40, 460, 490);
+        private bool _wasF7Down = false;
+
+        [DllImport("user32.dll")]
+        private static extern short GetAsyncKeyState(int vKey);
+
+        private bool IsF7Triggered()
+        {
+            bool isDown = false;
+            try
+            {
+                // VK_F7 = 0x76
+                if ((GetAsyncKeyState(0x76) & 0x8000) != 0)
+                {
+                    isDown = true;
+                }
+            }
+            catch { }
+
+            if (!isDown)
+            {
+                try
+                {
+                    if (Input.GetKey(KeyCode.F7) || (MenuHotkeyConfig != null && Input.GetKey(MenuHotkeyConfig.Value)))
+                    {
+                        isDown = true;
+                    }
+                }
+                catch { }
+            }
+
+            bool triggered = isDown && !_wasF7Down;
+            _wasF7Down = isDown;
+            return triggered;
+        }
 
         private void Awake()
         {
@@ -51,19 +86,19 @@ namespace ValheimUpscalerUI
                 string gameDir = Path.GetDirectoryName(Application.dataPath);
                 if (string.IsNullOrEmpty(gameDir)) return;
 
-                // 1. Remove conflicting or leftover version.dll to prevent Assertion failed crash
+                // 1. Remove leftover version.dll if present
                 string versionDll = Path.Combine(gameDir, "version.dll");
                 if (File.Exists(versionDll))
                 {
                     try
                     {
                         File.Delete(versionDll);
-                        Debug.Log("[ValheimUpscalerUI] Removed conflicting version.dll to avoid Dx12 hook collision.");
+                        Debug.Log("[ValheimUpscalerUI] Removed conflicting version.dll to prevent Dx12 hook collision.");
                     }
                     catch { }
                 }
 
-                // 2. Automatically deploy native DirectX 12 upscaler files from plugin directory
+                // 2. Locate native files from executing plugin directory
                 string pluginDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
                 if (string.IsNullOrEmpty(pluginDir) || !Directory.Exists(pluginDir)) return;
 
@@ -71,6 +106,7 @@ namespace ValheimUpscalerUI
                 {
                     "dxgi.dll",
                     "OptiScaler.ini",
+                    "OptiScaler.dll",
                     "amd_fidelityfx_dx12.dll",
                     "amd_fidelityfx_framegeneration_dx12.dll",
                     "amd_fidelityfx_upscaler_dx12.dll",
@@ -86,7 +122,6 @@ namespace ValheimUpscalerUI
                     string src = Path.Combine(pluginDir, fileName);
                     if (!File.Exists(src))
                     {
-                        // Check native/ or runtimes/ subdirectories
                         string sub1 = Path.Combine(pluginDir, "native", fileName);
                         string sub2 = Path.Combine(pluginDir, "runtimes", fileName);
                         if (File.Exists(sub1)) src = sub1;
@@ -96,7 +131,15 @@ namespace ValheimUpscalerUI
                     if (File.Exists(src))
                     {
                         string dst = Path.Combine(gameDir, fileName);
-                        if (!File.Exists(dst))
+                        bool needsCopy = !File.Exists(dst);
+                        if (!needsCopy)
+                        {
+                            FileInfo fiSrc = new FileInfo(src);
+                            FileInfo fiDst = new FileInfo(dst);
+                            if (fiSrc.Length != fiDst.Length) needsCopy = true;
+                        }
+
+                        if (needsCopy)
                         {
                             try
                             {
@@ -114,7 +157,7 @@ namespace ValheimUpscalerUI
 
                 if (anyDeployed)
                 {
-                    Debug.Log("[ValheimUpscalerUI] All native upscaler runtimes successfully deployed automatically!");
+                    Debug.Log("[ValheimUpscalerUI] All native upscaler runtimes successfully deployed!");
                 }
             }
             catch (Exception ex)
@@ -130,7 +173,7 @@ namespace ValheimUpscalerUI
 
         private void Update()
         {
-            if (Input.GetKeyDown(MenuHotkeyConfig.Value))
+            if (IsF7Triggered())
             {
                 _showQuickMenu = !_showQuickMenu;
                 if (_showQuickMenu)
@@ -139,32 +182,52 @@ namespace ValheimUpscalerUI
                     Cursor.visible = true;
                 }
             }
+
+            if (_showQuickMenu)
+            {
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+
+                if (Input.GetKeyDown(KeyCode.Escape))
+                {
+                    _showQuickMenu = false;
+                }
+            }
         }
 
         private void OnGUI()
         {
             if (!_showQuickMenu) return;
 
-            GUI.skin = null; // Standard Unity IMGUI skin
-            _quickMenuRect = GUILayout.Window(998822, _quickMenuRect, DrawQuickMenuWindow, "Настройки Valheim Upscaler (FSR / XeSS / DLSS)");
+            GUI.depth = -1000;
+
+            _quickMenuRect.width = 460;
+            _quickMenuRect.height = 490;
+            _quickMenuRect.x = Mathf.Clamp(_quickMenuRect.x, 10, Mathf.Max(10, Screen.width - _quickMenuRect.width - 10));
+            _quickMenuRect.y = Mathf.Clamp(_quickMenuRect.y, 10, Mathf.Max(10, Screen.height - _quickMenuRect.height - 10));
+
+            // Solid background box behind window to guarantee readability
+            GUI.Box(new Rect(_quickMenuRect.x - 3, _quickMenuRect.y - 3, _quickMenuRect.width + 6, _quickMenuRect.height + 6), GUIContent.none);
+
+            _quickMenuRect = GUILayout.Window(998822, _quickMenuRect, DrawQuickMenuWindow, "Valheim Universal Upscaler GUI");
         }
 
         private void DrawQuickMenuWindow(int windowId)
         {
             GUILayout.BeginVertical();
 
-            GUILayout.Label("Видеокарта: " + SystemInfo.graphicsDeviceName, GUILayout.ExpandWidth(true));
-            GUILayout.Space(5);
+            GUILayout.Label("<b>GPU:</b> " + SystemInfo.graphicsDeviceName, GUILayout.ExpandWidth(true));
+            GUILayout.Space(6);
 
-            GUILayout.Label("<b>Пресет масштабирования (Качество):</b>");
+            GUILayout.Label("<b>Upscaling Quality (Render Scale):</b>");
             string[] presetLabels = new string[]
             {
-                "Выкл",
-                "Нативное (100%)",
-                "Качество (67%)",
-                "Баланс (58%)",
-                "Производ. (50%)",
-                "Ультра (33%)"
+                "Off",
+                "Native (100%)",
+                "Quality (67%)",
+                "Balanced (58%)",
+                "Performance (50%)",
+                "Ultra (33%)"
             };
 
             int currentPreset = QualityPresetConfig.Value;
@@ -175,7 +238,7 @@ namespace ValheimUpscalerUI
             }
 
             GUILayout.Space(10);
-            GUILayout.Label("<b>Технология апскейла (Backend):</b>");
+            GUILayout.Label("<b>Upscaling Technology:</b>");
             string[] backendLabels = new string[]
             {
                 "AMD FSR 3.1",
@@ -193,31 +256,34 @@ namespace ValheimUpscalerUI
 
             GUILayout.Space(10);
             bool currentFg = FrameGenConfig.Value;
-            bool newFg = GUILayout.Toggle(currentFg, "  Генерация кадров (Frame Generation)");
+            bool newFg = GUILayout.Toggle(currentFg, "  Enable Frame Generation");
             if (newFg != currentFg)
             {
                 ApplyFrameGen(newFg);
             }
 
             GUILayout.Space(10);
-            GUILayout.Label("Резкость (Sharpness): " + (SharpnessConfig.Value * 100f).ToString("F0") + "%");
+            GUILayout.Label("<b>Sharpness:</b> " + (SharpnessConfig.Value * 100f).ToString("F0") + "%");
             float newSharpness = GUILayout.HorizontalSlider(SharpnessConfig.Value, 0f, 1f);
             if (Math.Abs(newSharpness - SharpnessConfig.Value) > 0.02f)
             {
                 ApplySharpness(newSharpness);
             }
 
-            GUILayout.Space(15);
+            GUILayout.Space(12);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Применить все", GUILayout.Height(30)))
+            if (GUILayout.Button("Apply All Settings", GUILayout.Height(30)))
             {
                 ApplyAllSettings();
             }
-            if (GUILayout.Button("Закрыть (F7)", GUILayout.Height(30)))
+            if (GUILayout.Button("Close (F7)", GUILayout.Height(30)))
             {
                 _showQuickMenu = false;
             }
             GUILayout.EndHorizontal();
+
+            GUILayout.Space(6);
+            GUILayout.Label("<size=11><i>Tip: Press [Insert] to open OptiScaler's native in-game overlay menu.</i></size>");
 
             GUILayout.EndVertical();
             GUI.DragWindow(new Rect(0, 0, 10000, 25));
@@ -227,6 +293,7 @@ namespace ValheimUpscalerUI
         {
             QualityPresetConfig.Value = presetIndex;
 
+            // 1. Update ValheimUpscaler.Inject engine if loaded
             try
             {
                 Type injectPluginType = AccessTools.TypeByName("ValheimUpscaler.Inject.InjectPlugin");
@@ -249,50 +316,114 @@ namespace ValheimUpscalerUI
                             if (prop != null) prop.SetValue(customPresetEntry, false, null);
                         }
                     }
+                }
+                else
+                {
+                    if (injectStateType != null)
+                    {
+                        MethodInfo setInjMethod = AccessTools.Method(injectStateType, "SetInjectionEnabled", new Type[] { typeof(bool), typeof(string) });
+                        if (setInjMethod != null) setInjMethod.Invoke(null, new object[] { true, "in-game-ui" });
+                    }
+
+                    if (injectPluginType != null)
+                    {
+                        FieldInfo customPresetField = AccessTools.Field(injectPluginType, "ConfigCustomResolutionPreset");
+                        object customPresetEntry = customPresetField != null ? customPresetField.GetValue(null) : null;
+                        if (customPresetEntry != null)
+                        {
+                            PropertyInfo prop = AccessTools.Property(customPresetEntry.GetType(), "Value");
+                            if (prop != null) prop.SetValue(customPresetEntry, true, null);
+                        }
+
+                        FieldInfo dlssModeField = AccessTools.Field(injectPluginType, "ConfigDLSSMode");
+                        object dlssModeEntry = dlssModeField != null ? dlssModeField.GetValue(null) : null;
+                        if (dlssModeEntry != null)
+                        {
+                            int dlssModeVal = 2; // Quality
+                            if (presetIndex == 1) dlssModeVal = 0; // Native
+                            else if (presetIndex == 2) dlssModeVal = 2; // Quality
+                            else if (presetIndex == 3) dlssModeVal = 3; // Balanced
+                            else if (presetIndex == 4) dlssModeVal = 4; // Performance
+                            else if (presetIndex == 5) dlssModeVal = 5; // UltraPerformance
+
+                            Type enumType = dlssModeEntry.GetType().GetGenericArguments()[0];
+                            object enumVal = Enum.ToObject(enumType, dlssModeVal);
+                            PropertyInfo prop = AccessTools.Property(dlssModeEntry.GetType(), "Value");
+                            if (prop != null) prop.SetValue(dlssModeEntry, enumVal, null);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[ValheimUpscalerUI] InjectPlugin preset sync: " + ex.Message);
+            }
+
+            // 2. Update OptiScaler.ini [UpscaleRatio]
+            try
+            {
+                if (presetIndex == 0) // Off
+                {
+                    UpdateIniKey("[UpscaleRatio]", "UpscaleRatioOverrideEnabled", "false");
                     Debug.Log("[ValheimUpscalerUI] Upscaler disabled (Native game rendering).");
-                    return;
                 }
-
-                // Enable Upscaler injection
-                if (injectStateType != null)
+                else
                 {
-                    MethodInfo setInjMethod = AccessTools.Method(injectStateType, "SetInjectionEnabled", new Type[] { typeof(bool), typeof(string) });
-                    if (setInjMethod != null) setInjMethod.Invoke(null, new object[] { true, "in-game-ui" });
+                    string ratioVal = "1.5"; // Quality (67%)
+                    if (presetIndex == 1) ratioVal = "1.0"; // Native (100%)
+                    else if (presetIndex == 2) ratioVal = "1.5"; // Quality (67%)
+                    else if (presetIndex == 3) ratioVal = "1.7"; // Balanced (58%)
+                    else if (presetIndex == 4) ratioVal = "2.0"; // Performance (50%)
+                    else if (presetIndex == 5) ratioVal = "3.0"; // Ultra Performance (33%)
+
+                    UpdateIniKey("[UpscaleRatio]", "UpscaleRatioOverrideEnabled", "true");
+                    UpdateIniKey("[UpscaleRatio]", "UpscaleRatioOverrideValue", ratioVal);
+                    Debug.Log("[ValheimUpscalerUI] Applied Quality Preset index: " + presetIndex + " (Ratio: " + ratioVal + ")");
                 }
-
-                if (injectPluginType != null)
-                {
-                    FieldInfo customPresetField = AccessTools.Field(injectPluginType, "ConfigCustomResolutionPreset");
-                    object customPresetEntry = customPresetField != null ? customPresetField.GetValue(null) : null;
-                    if (customPresetEntry != null)
-                    {
-                        PropertyInfo prop = AccessTools.Property(customPresetEntry.GetType(), "Value");
-                        if (prop != null) prop.SetValue(customPresetEntry, true, null);
-                    }
-
-                    FieldInfo dlssModeField = AccessTools.Field(injectPluginType, "ConfigDLSSMode");
-                    object dlssModeEntry = dlssModeField != null ? dlssModeField.GetValue(null) : null;
-                    if (dlssModeEntry != null)
-                    {
-                        // 0: Native (100%), 2: Quality (67%), 3: Balanced (58%), 4: Performance (50%), 5: UltraPerformance (33%)
-                        int dlssModeVal = 2; // Quality
-                        if (presetIndex == 1) dlssModeVal = 0; // Native
-                        else if (presetIndex == 2) dlssModeVal = 2; // Quality
-                        else if (presetIndex == 3) dlssModeVal = 3; // Balanced
-                        else if (presetIndex == 4) dlssModeVal = 4; // Performance
-                        else if (presetIndex == 5) dlssModeVal = 5; // UltraPerformance
-
-                        Type enumType = dlssModeEntry.GetType().GetGenericArguments()[0];
-                        object enumVal = Enum.ToObject(enumType, dlssModeVal);
-                        PropertyInfo prop = AccessTools.Property(dlssModeEntry.GetType(), "Value");
-                        if (prop != null) prop.SetValue(dlssModeEntry, enumVal, null);
-                    }
-                }
-                Debug.Log("[ValheimUpscalerUI] Applied Quality Preset index: " + presetIndex);
             }
             catch (Exception ex)
             {
                 Debug.LogError("[ValheimUpscalerUI] Error applying quality preset: " + ex);
+            }
+
+            // 3. Drive game's internal 3D rendering resolution
+            try
+            {
+                int screenH = Screen.height > 0 ? Screen.height : 1080;
+                int targetVertical = screenH;
+                if (presetIndex == 1) targetVertical = screenH;
+                else if (presetIndex == 2) targetVertical = Mathf.RoundToInt(screenH / 1.5f);
+                else if (presetIndex == 3) targetVertical = Mathf.RoundToInt(screenH / 1.7f);
+                else if (presetIndex == 4) targetVertical = Mathf.RoundToInt(screenH / 2.0f);
+                else if (presetIndex == 5) targetVertical = Mathf.RoundToInt(screenH / 3.0f);
+
+                Type ufbType = AccessTools.TypeByName("UpscaledFrameBuffer");
+                if (ufbType != null)
+                {
+                    FieldInfo autoResField = AccessTools.Field(ufbType, "m_autoTargetResolution");
+                    if (autoResField != null) autoResField.SetValue(null, false);
+
+                    FieldInfo targetResField = AccessTools.Field(ufbType, "m_targetResolutionVertical");
+                    if (targetResField != null)
+                    {
+                        uint uintVal = presetIndex == 0 ? uint.MaxValue : (uint)targetVertical;
+                        targetResField.SetValue(null, uintVal);
+                    }
+
+                    UnityEngine.Object[] ufbObjects = UnityEngine.Object.FindObjectsOfType(ufbType);
+                    if (ufbObjects != null)
+                    {
+                        MethodInfo updateCamMethod = AccessTools.Method(ufbType, "UpdateCameraTarget");
+                        foreach (var ufb in ufbObjects)
+                        {
+                            if (updateCamMethod != null) updateCamMethod.Invoke(ufb, null);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[ValheimUpscalerUI] In-engine resolution scale adjustment: " + ex.Message);
             }
         }
 
@@ -320,7 +451,7 @@ namespace ValheimUpscalerUI
                         if (cfgBackend != null)
                         {
                             Type enumType = cfgBackend.GetType().GetGenericArguments()[0];
-                            object fsr4Val = Enum.ToObject(enumType, 2); // UpscalerBackend.FSR4 = 2
+                            object fsr4Val = Enum.ToObject(enumType, 2);
                             PropertyInfo prop = AccessTools.Property(cfgBackend.GetType(), "Value");
                             if (prop != null) prop.SetValue(cfgBackend, fsr4Val, null);
                         }
@@ -335,13 +466,13 @@ namespace ValheimUpscalerUI
                         if (cfgBackend != null)
                         {
                             Type enumType = cfgBackend.GetType().GetGenericArguments()[0];
-                            object dlssVal = Enum.ToObject(enumType, 1); // UpscalerBackend.DLSS = 1
+                            object dlssVal = Enum.ToObject(enumType, 1);
                             PropertyInfo prop = AccessTools.Property(cfgBackend.GetType(), "Value");
                             if (prop != null) prop.SetValue(cfgBackend, dlssVal, null);
                         }
                     }
                 }
-                else // Auto (FSR 3.1 or XeSS)
+                else
                 {
                     if (injectPluginType != null)
                     {
@@ -350,7 +481,7 @@ namespace ValheimUpscalerUI
                         if (cfgBackend != null)
                         {
                             Type enumType = cfgBackend.GetType().GetGenericArguments()[0];
-                            object autoVal = Enum.ToObject(enumType, 0); // UpscalerBackend.Auto = 0
+                            object autoVal = Enum.ToObject(enumType, 0);
                             PropertyInfo prop = AccessTools.Property(cfgBackend.GetType(), "Value");
                             if (prop != null) prop.SetValue(cfgBackend, autoVal, null);
                         }
@@ -436,9 +567,8 @@ namespace ValheimUpscalerUI
 
         private static void UpdateOptiScalerIniBackend(int backendIndex, string backendCode)
         {
-            // Dx12Upscaler in [Upscalers]
             string upscalerCode = backendCode;
-            if (backendIndex == 1) // FSR4 uses fsr31 loader with UpscalerIndex=0
+            if (backendIndex == 1) // FSR 4
             {
                 upscalerCode = "fsr31";
                 UpdateIniKey("[FSR]", "UpscalerIndex", "0");
@@ -456,11 +586,27 @@ namespace ValheimUpscalerUI
         {
             List<string> paths = new List<string>();
             string gameDir = Path.GetDirectoryName(Application.dataPath);
-            paths.Add(Path.Combine(gameDir, "OptiScaler.ini"));
+            if (!string.IsNullOrEmpty(gameDir))
+            {
+                paths.Add(Path.Combine(gameDir, "OptiScaler.ini"));
+            }
+
+            try
+            {
+                string pluginDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                if (!string.IsNullOrEmpty(pluginDir))
+                {
+                    paths.Add(Path.Combine(pluginDir, "OptiScaler.ini"));
+                    paths.Add(Path.Combine(pluginDir, "runtimes", "OptiScaler.ini"));
+                }
+            }
+            catch { }
 
             string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            string r2Ini = Path.Combine(appData, @"r2modmanPlus-local\Valheim\profiles\Default\OptiScaler.ini");
-            paths.Add(r2Ini);
+            if (!string.IsNullOrEmpty(appData))
+            {
+                paths.Add(Path.Combine(appData, @"r2modmanPlus-local\Valheim\profiles\Default\OptiScaler.ini"));
+            }
 
             foreach (string iniPath in paths)
             {
@@ -517,8 +663,6 @@ namespace ValheimUpscalerUI
         {
             try
             {
-                if (CustomPresetRow != null && CustomPresetRow.gameObject != null) return;
-
                 FieldInfo resRootField = AccessTools.Field(typeof(Valheim.SettingsGui.GraphicsSettings), "m_resolutionRoot");
                 GameObject resRoot = resRootField != null ? resRootField.GetValue(__instance) as GameObject : null;
                 if (resRoot == null) return;
@@ -526,45 +670,72 @@ namespace ValheimUpscalerUI
                 Transform listParent = resRoot.transform.parent;
                 if (listParent == null) return;
 
+                // Check if our rows already exist in the active settings dialog
+                Transform existingPreset = listParent.Find("UpscalerPresetRow");
+                if (existingPreset != null)
+                {
+                    CustomPresetRow = existingPreset.gameObject;
+                    Transform eb = listParent.Find("UpscalerBackendRow");
+                    if (eb != null) CustomBackendRow = eb.gameObject;
+                    Transform ef = listParent.Find("UpscalerFgRow");
+                    if (ef != null) CustomFgRow = ef.gameObject;
+                    Transform es = listParent.Find("UpscalerSharpnessRow");
+                    if (es != null) CustomSharpnessRow = es.gameObject;
+
+                    if (CustomPresetRow)
+                        PresetDropdown = CustomPresetRow.GetComponentInChildren<TMP_Dropdown>(true);
+                    if (CustomBackendRow)
+                        BackendDropdown = CustomBackendRow.GetComponentInChildren<TMP_Dropdown>(true);
+                    if (CustomFgRow)
+                        FgToggle = CustomFgRow.GetComponentInChildren<Toggle>(true);
+                    if (CustomSharpnessRow)
+                    {
+                        SharpnessSlider = CustomSharpnessRow.GetComponentInChildren<Slider>(true);
+                        Transform valT = CustomSharpnessRow.transform.Find("Info/Value");
+                        SharpnessValueText = valT != null ? valT.GetComponent<TMP_Text>() : null;
+                    }
+                    return;
+                }
+
                 int baseSiblingIndex = resRoot.transform.GetSiblingIndex() + 1;
 
-                // 1. Quality Preset Row (Clone of m_resolutionRoot)
+                // 1. Quality Preset Row
                 CustomPresetRow = UnityEngine.Object.Instantiate(resRoot, listParent);
                 CustomPresetRow.name = "UpscalerPresetRow";
                 CustomPresetRow.SetActive(true);
                 CustomPresetRow.transform.SetSiblingIndex(baseSiblingIndex);
 
-                PresetDropdown = PrepareRowDropdown(CustomPresetRow, "Масштабирование (Разрешение)", new List<string>
+                PresetDropdown = PrepareRowDropdown(CustomPresetRow, "Upscaling Quality", new List<string>
                 {
-                    "Масштаб: Выключено (100% Native)",
-                    "Масштаб: Нативное (DLAA / FSR Native)",
-                    "Масштаб: Качество (Quality - 67%)",
-                    "Масштаб: Баланс (Balanced - 58%)",
-                    "Масштаб: Быстродействие (Performance - 50%)",
-                    "Масштаб: Ультра быстродействие (33%)"
+                    "Quality: Off (100% Native)",
+                    "Quality: Native (DLAA / FSR Native)",
+                    "Quality: Quality (67%)",
+                    "Quality: Balanced (58%)",
+                    "Quality: Performance (50%)",
+                    "Quality: Ultra Performance (33%)"
                 }, UpscalerUIPlugin.QualityPresetConfig.Value, (val) =>
                 {
                     UpscalerUIPlugin.ApplyQualityPreset(val);
                 });
 
-                // 2. Backend Row (Clone of m_resolutionRoot)
+                // 2. Backend Row
                 CustomBackendRow = UnityEngine.Object.Instantiate(resRoot, listParent);
                 CustomBackendRow.name = "UpscalerBackendRow";
                 CustomBackendRow.SetActive(true);
                 CustomBackendRow.transform.SetSiblingIndex(baseSiblingIndex + 1);
 
-                BackendDropdown = PrepareRowDropdown(CustomBackendRow, "Технология масштабирования", new List<string>
+                BackendDropdown = PrepareRowDropdown(CustomBackendRow, "Upscaling Technology", new List<string>
                 {
-                    "Технология: AMD FSR 3.1",
-                    "Технология: AMD FSR 4 (RDNA4 / FP8)",
-                    "Технология: Intel XeSS",
-                    "Технология: NVIDIA DLSS"
+                    "Backend: AMD FSR 3.1",
+                    "Backend: AMD FSR 4 (RDNA4 / FP8)",
+                    "Backend: Intel XeSS",
+                    "Backend: NVIDIA DLSS"
                 }, UpscalerUIPlugin.BackendConfig.Value, (val) =>
                 {
                     UpscalerUIPlugin.ApplyBackend(val);
                 });
 
-                // 3. Frame Generation Row (Clone of m_qualityTogglePrefab if available, else m_resolutionRoot toggle)
+                // 3. Frame Generation Row
                 FieldInfo togglePrefabField = AccessTools.Field(typeof(Valheim.SettingsGui.GraphicsSettings), "m_qualityTogglePrefab");
                 GameObject togglePrefab = togglePrefabField != null ? togglePrefabField.GetValue(__instance) as GameObject : null;
 
@@ -578,7 +749,7 @@ namespace ValheimUpscalerUI
                     TMP_Text toggleLabel = CustomFgRow.GetComponentInChildren<TMP_Text>(true);
                     if (toggleLabel != null)
                     {
-                        toggleLabel.text = "Генерация кадров (Frame Generation)";
+                        toggleLabel.text = "Frame Generation";
                     }
 
                     FgToggle = CustomFgRow.GetComponentInChildren<Toggle>(true);
@@ -593,7 +764,7 @@ namespace ValheimUpscalerUI
                     }
                 }
 
-                // 4. Sharpness Slider Row (Clone of m_qualitySliderPrefab if available)
+                // 4. Sharpness Slider Row
                 FieldInfo sliderPrefabField = AccessTools.Field(typeof(Valheim.SettingsGui.GraphicsSettings), "m_qualitySliderPrefab");
                 GameObject sliderPrefab = sliderPrefabField != null ? sliderPrefabField.GetValue(__instance) as GameObject : null;
 
@@ -608,7 +779,7 @@ namespace ValheimUpscalerUI
                     TMP_Text labelText = labelT != null ? labelT.GetComponent<TMP_Text>() : null;
                     if (labelText != null)
                     {
-                        labelText.text = "Резкость (Sharpness)";
+                        labelText.text = "Sharpness";
                     }
 
                     Transform valT = CustomSharpnessRow.transform.Find("Info/Value");
@@ -672,7 +843,6 @@ namespace ValheimUpscalerUI
             TMP_Dropdown dropdown = rowGo.GetComponentInChildren<TMP_Dropdown>(true);
             if (dropdown == null) return null;
 
-            // Set Row Label Text (the TMP_Text that is NOT part of dropdown)
             TMP_Text[] texts = rowGo.GetComponentsInChildren<TMP_Text>(true);
             foreach (var txt in texts)
             {
@@ -683,7 +853,6 @@ namespace ValheimUpscalerUI
                 }
             }
 
-            // Hide any extraneous buttons or toggles in this row
             Button[] buttons = rowGo.GetComponentsInChildren<Button>(true);
             foreach (var btn in buttons)
             {
@@ -701,7 +870,6 @@ namespace ValheimUpscalerUI
                 }
             }
 
-            // Configure Dropdown
             dropdown.onValueChanged.RemoveAllListeners();
             dropdown.ClearOptions();
             dropdown.AddOptions(options);
@@ -712,6 +880,29 @@ namespace ValheimUpscalerUI
         }
     }
 
+    [HarmonyPatch(typeof(Valheim.SettingsGui.GraphicsSettings), "OnTabOpen")]
+    public static class GraphicsSettings_OnTabOpen_Patch
+    {
+        public static void Postfix(Valheim.SettingsGui.GraphicsSettings __instance)
+        {
+            try
+            {
+                if (GraphicsSettings_InitializeUI_Patch.CustomPresetRow)
+                    GraphicsSettings_InitializeUI_Patch.CustomPresetRow.SetActive(true);
+
+                if (GraphicsSettings_InitializeUI_Patch.CustomBackendRow)
+                    GraphicsSettings_InitializeUI_Patch.CustomBackendRow.SetActive(true);
+
+                if (GraphicsSettings_InitializeUI_Patch.CustomFgRow)
+                    GraphicsSettings_InitializeUI_Patch.CustomFgRow.SetActive(true);
+
+                if (GraphicsSettings_InitializeUI_Patch.CustomSharpnessRow)
+                    GraphicsSettings_InitializeUI_Patch.CustomSharpnessRow.SetActive(true);
+            }
+            catch { }
+        }
+    }
+
     [HarmonyPatch(typeof(Valheim.SettingsGui.GraphicsSettings), "UpdateSettingAvailability")]
     public static class GraphicsSettings_UpdateSettingAvailability_Patch
     {
@@ -719,16 +910,16 @@ namespace ValheimUpscalerUI
         {
             try
             {
-                if (GraphicsSettings_InitializeUI_Patch.CustomPresetRow != null)
+                if (GraphicsSettings_InitializeUI_Patch.CustomPresetRow)
                     GraphicsSettings_InitializeUI_Patch.CustomPresetRow.SetActive(true);
 
-                if (GraphicsSettings_InitializeUI_Patch.CustomBackendRow != null)
+                if (GraphicsSettings_InitializeUI_Patch.CustomBackendRow)
                     GraphicsSettings_InitializeUI_Patch.CustomBackendRow.SetActive(true);
 
-                if (GraphicsSettings_InitializeUI_Patch.CustomFgRow != null)
+                if (GraphicsSettings_InitializeUI_Patch.CustomFgRow)
                     GraphicsSettings_InitializeUI_Patch.CustomFgRow.SetActive(true);
 
-                if (GraphicsSettings_InitializeUI_Patch.CustomSharpnessRow != null)
+                if (GraphicsSettings_InitializeUI_Patch.CustomSharpnessRow)
                     GraphicsSettings_InitializeUI_Patch.CustomSharpnessRow.SetActive(true);
             }
             catch { }
@@ -742,23 +933,23 @@ namespace ValheimUpscalerUI
         {
             try
             {
-                if (GraphicsSettings_InitializeUI_Patch.PresetDropdown != null)
+                if (GraphicsSettings_InitializeUI_Patch.PresetDropdown)
                 {
                     GraphicsSettings_InitializeUI_Patch.PresetDropdown.SetValueWithoutNotify(UpscalerUIPlugin.QualityPresetConfig.Value);
                 }
-                if (GraphicsSettings_InitializeUI_Patch.BackendDropdown != null)
+                if (GraphicsSettings_InitializeUI_Patch.BackendDropdown)
                 {
                     GraphicsSettings_InitializeUI_Patch.BackendDropdown.SetValueWithoutNotify(UpscalerUIPlugin.BackendConfig.Value);
                 }
-                if (GraphicsSettings_InitializeUI_Patch.FgToggle != null)
+                if (GraphicsSettings_InitializeUI_Patch.FgToggle)
                 {
                     GraphicsSettings_InitializeUI_Patch.FgToggle.SetIsOnWithoutNotify(UpscalerUIPlugin.FrameGenConfig.Value);
                 }
-                if (GraphicsSettings_InitializeUI_Patch.SharpnessSlider != null)
+                if (GraphicsSettings_InitializeUI_Patch.SharpnessSlider)
                 {
                     GraphicsSettings_InitializeUI_Patch.SharpnessSlider.SetValueWithoutNotify(Mathf.Round(UpscalerUIPlugin.SharpnessConfig.Value * 100f));
                 }
-                if (GraphicsSettings_InitializeUI_Patch.SharpnessValueText != null)
+                if (GraphicsSettings_InitializeUI_Patch.SharpnessValueText)
                 {
                     GraphicsSettings_InitializeUI_Patch.SharpnessValueText.text = (UpscalerUIPlugin.SharpnessConfig.Value * 100f).ToString("F0") + "%";
                 }

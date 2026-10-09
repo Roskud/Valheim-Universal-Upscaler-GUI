@@ -1,6 +1,6 @@
 {
   "name": "Valheim_Universal_Upscaler_GUI",
-  "version_number": "1.1.1",
+  "version_number": "1.1.2",
   "website_url": "https://github.com/Roskud/Valheim-Universal-Upscaler-GUI",
   "description": "Standalone In-Game Settings UI for Valheim Upscaler. Full native OptiScaler, FSR 4, FSR 3.1, XeSS, DLSS and Frame Generation auto-deployed right from r2modman out of the box!",
   "dependencies": [
